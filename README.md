@@ -42,14 +42,10 @@ InstagramAPI
 │
 ├── Controllers
 ├── DTOs
-├── Entities
+├── Mail
 ├── Services
-├── Repositories
-├── Interfaces
-├── Data
+├── DB
 ├── Migrations
-├── Helpers
-├── Middleware
 ├── Program.cs
 └── appsettings.json
 ```
