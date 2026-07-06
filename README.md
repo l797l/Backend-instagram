@@ -150,4 +150,4 @@ https://localhost:5001/swagger
 **Ali Abdul Mahdi**
 
 - GitHub: https://github.com/l797l
-- LinkedIn: https://www.linkedin.com/in/ali-abdul-al-mahdi-a5b9a2354
+- LinkedIn: www.linkedin.com/in/l797i
