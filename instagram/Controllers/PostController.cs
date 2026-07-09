@@ -203,6 +203,48 @@ namespace instagram.Controllers
             await appDBContext.SaveChangesAsync();
             return Ok("Like removed successfully.");
         }
-      
+
+        [Authorize]
+        [HttpGet("CreateFollowing/{userName}")]
+        public async Task<IActionResult> CreateFollowing(string userName)
+        {
+            if (userName == null) return BadRequest("username is empty");
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return BadRequest("user is not found");
+
+            var userOther = await appDBContext.Users.FirstOrDefaultAsync(u => u.UserName == userName);
+
+            var follow = new Follow
+            {
+                FollowerId = userId,
+                FollowingId = userOther.Id,
+            };
+
+            await appDBContext.Follows.AddAsync(follow);
+            await appDBContext.SaveChangesAsync();
+            return Ok();
+
+        }
+
+        [Authorize]
+        [HttpDelete("DeleteFollow/{userName}")]
+        public async Task<IActionResult> DelelteFollowing(string userName)
+        {
+            if (userName == null) return BadRequest("username is empty");
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return BadRequest("user is not found");
+
+            var userOther = await appDBContext.Users.FirstOrDefaultAsync(u => u.UserName == userName);
+
+            var follow = await appDBContext.Follows.FirstOrDefaultAsync(u => u.FollowerId == userId && u.FollowingId == userOther.Id);
+
+            if (follow == null) return BadRequest("Not found");
+             appDBContext.Follows.Remove(follow);
+            await appDBContext.SaveChangesAsync();
+            return Ok();
+
+        }
+
+
     }
 }

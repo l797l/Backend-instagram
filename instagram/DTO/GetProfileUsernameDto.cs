@@ -9,6 +9,11 @@ namespace instagram.DTO
         public string ImagProfile { get; set; }
         public List<GetPostProfileDto> Posts { get; set; } = [];
 
+        public List<string> Followers { get; set; } = [];
+        public List<string> Folloings { get; set; } = [];
+
+
+
 
     }
 }

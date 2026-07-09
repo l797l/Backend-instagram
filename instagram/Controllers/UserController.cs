@@ -2,6 +2,7 @@
 using instagram.DB.Moduls;
 using instagram.DTO;
 using instagram.Mail;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -112,8 +113,7 @@ namespace instagram.Controllers
             return Ok(new
             {
                 Token = jwt,
-                Expire = token.ValidTo,
-                UserID = user.Id,
+                username = user.UserName,
             });
         }
         [HttpPost("ForgotPassword")]
@@ -245,6 +245,12 @@ namespace instagram.Controllers
             var user = await _context.Users
                 .Include(u => u.Posts)
                     .ThenInclude(i => i.PostImages)
+                 .Include(u => u.Posts)
+                    .ThenInclude(s => s.LikePosts)
+                 .Include(u => u.Posts)
+                     .ThenInclude(s => s.CommandPosts)
+                .Include(u => u.Followers)
+                .Include(f => f.Following)
                 .FirstOrDefaultAsync(u => u.UserName == userName);
             if (user == null)
                 return NotFound();
@@ -256,6 +262,8 @@ namespace instagram.Controllers
                 Username = user.UserName,
                 FullName = $"{user.First_Name} {user.Last_Name}",
                 ImagProfile = user.Link_Image_Profile,
+                Followers = user.Followers.Select(s => s.FollowerId).ToList(),
+                Folloings = user.Following.Select(s => s.FollowingId).ToList(),
 
                 Posts = user.Posts.Select(p => new GetPostProfileDto
                 {
@@ -268,11 +276,35 @@ namespace instagram.Controllers
 
                 }
                 ).ToList()
-                };
 
-                
+            };
+
+
             return Ok(dto);
         }
+
+        [Authorize]
+        [HttpGet("isFollow/{userName}")]
+        public async Task<IActionResult> isFollow(string userName)
+        {
+            if (userName == null) return BadRequest("is Empty");
+
+            var user = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (user == null) return BadRequest("User not found");
+            var userIdOther = await _context.Users.FirstOrDefaultAsync(user => user.UserName == userName);
+            if (userIdOther == null) return BadRequest("User other not found");
+
+            bool isFollowing = await _context.Follows.AnyAsync(f => f.FollowerId == user && f.FollowingId == userIdOther.Id);
+            bool isFollower = await _context.Follows.AnyAsync(f => f.FollowerId == userIdOther.Id && f.FollowingId == user);
+
+            return Ok (new
+            {
+                follower = isFollower,
+                following = isFollowing,
+            });
+
+        }
     }
+    
 
 }
