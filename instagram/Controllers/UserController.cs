@@ -17,11 +17,11 @@ namespace instagram.Controllers
     public class UserController : ControllerBase
     {
         readonly UserManager<User> _userManager;
-        readonly ILogger<UserController> _logger;   
+        readonly ILogger<UserController> _logger;
         readonly IConfiguration _configuration;
         readonly IEmailService _emailService;
         readonly AppDBContext _context;
-        public UserController(AppDBContext context,UserManager<User> userManager , ILogger<UserController> logger, IConfiguration configuration, IEmailService emailService)
+        public UserController(AppDBContext context, UserManager<User> userManager, ILogger<UserController> logger, IConfiguration configuration, IEmailService emailService)
         {
             _userManager = userManager;
             _logger = logger;
@@ -32,10 +32,12 @@ namespace instagram.Controllers
 
 
         [HttpPost("register")]
-        public async Task <IActionResult> Register (registerDto re)
+        public async Task<IActionResult> Register(registerDto re)
         {
-            
-            if(!ModelState.IsValid) return BadRequest(ModelState.ErrorCount);
+
+            if (!ModelState.IsValid) {
+                _logger.LogWarning("Error in IsValid");
+                return BadRequest(ModelState.ErrorCount); }
             var User = new User
             {
                 First_Name = re.First_Name,
@@ -44,7 +46,10 @@ namespace instagram.Controllers
                 Email = re.Email,
             };
             var result = await _userManager.CreateAsync(User, re.Password);
-            if (!result.Succeeded) return BadRequest(result.Errors);
+            if (!result.Succeeded) {
+                _logger.LogWarning("Error in creating");
+
+                return BadRequest(result.Errors); }
 
 
 
@@ -53,29 +58,29 @@ namespace instagram.Controllers
         }
 
         [HttpPost("Login")]
-        public async Task <IActionResult> Login(loginDto lo)
+        public async Task<IActionResult> Login(loginDto lo)
         {
             if (!ModelState.IsValid)
             {
-                _logger.LogWarning("Invalid login attempt.\n"+"Email: " +lo.Email +"\nPassword: "+lo.Password);
+                _logger.LogWarning("Invalid login attempt.\n" + "Email: " + lo.Email + "\nPassword: " + lo.Password);
                 return BadRequest(ModelState.ErrorCount);
             }
-                
+
             var user = await _userManager.FindByEmailAsync(lo.Email);
             if (user == null)
             {
                 _logger.LogWarning("Email is not Fount.\n" + "Email: " + lo.Email);
-                return BadRequest("Invalid login attempt.");
+                return BadRequest("Email or Password invalid");
 
             }
-            var result= await _userManager.CheckPasswordAsync(user, lo.Password);
+            var result = await _userManager.CheckPasswordAsync(user, lo.Password);
 
-            if (!result) 
+            if (!result)
             {
-                _logger.LogWarning("Invalid password for user {Email}\n" + "Email: " + lo.Email );
+                _logger.LogWarning("Invalid password for user {Email}\n" + "Email: " + lo.Email);
 
 
-                return BadRequest("Invalid login attempt.");
+                return BadRequest("Email or Password invalid");
 
 
             }
@@ -157,12 +162,12 @@ namespace instagram.Controllers
                 _logger.LogWarning("Invalid OTP verification attempt.\n" + "Email: " + dto.Email + "\nOTP: " + dto.Dto);
                 return BadRequest("Invalid OTP.");
             }
-            if(otp.IsUsed == true)
+            if (otp.IsUsed == true)
             {
                 _logger.LogWarning("OTP already used for verification.\n" + "Email: " + dto.Email + "\nOTP: " + dto.Dto);
                 return BadRequest("OTP has already been used.");
             }
-            if(otp.ExpirationTime < DateTime.UtcNow)
+            if (otp.ExpirationTime < DateTime.UtcNow)
             {
                 _logger.LogWarning("Expired OTP verification attempt.\n" + "Email: " + dto.Email + "\nOTP: " + dto.Dto);
                 return BadRequest("OTP has expired.");
@@ -181,7 +186,7 @@ namespace instagram.Controllers
                 _logger.LogWarning("Invalid password reset attempt.\n" + "Email: " + dto.Email);
                 return BadRequest("Invalid email address.");
             }
-            var otp = await _context.EmailOtps.FirstOrDefaultAsync(e => e.Email == dto.Email && e.IsUsed );
+            var otp = await _context.EmailOtps.FirstOrDefaultAsync(e => e.Email == dto.Email && e.IsUsed);
             if (otp == null)
             {
                 _logger.LogWarning("OTP not verified for password reset.\n" + "Email: " + dto.Email);
@@ -213,6 +218,61 @@ namespace instagram.Controllers
 
         }
 
+        [HttpPost("CheckUserName")]
+        public async Task<IActionResult> CheckUserName(CheckUserNameDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.UserName))
+            {
+                _logger.LogWarning($"{nameof(CheckUserName)}: {dto.UserName}");
+                return BadRequest("is Empty");
+            }
+            var result = await _context.Users.AnyAsync(u => u.UserName == dto.UserName);
 
+            if (!result)
+            {
+                return Ok();
+            }
+            return BadRequest("is Username already take");
+        }
+        [HttpGet("getProfileUsername/{userName}")]
+        public async Task<IActionResult> getProfileUsername(string userName)
+        {
+            if (string.IsNullOrEmpty(userName))
+            {
+                _logger.LogWarning("User is empty");
+                return BadRequest("user is empty");
+            }
+            var user = await _context.Users
+                .Include(u => u.Posts)
+                    .ThenInclude(i => i.PostImages)
+                .FirstOrDefaultAsync(u => u.UserName == userName);
+            if (user == null)
+                return NotFound();
+
+
+
+            var dto = new GetProfileUsernameDto
+            {
+                Username = user.UserName,
+                FullName = $"{user.First_Name} {user.Last_Name}",
+                ImagProfile = user.Link_Image_Profile,
+
+                Posts = user.Posts.Select(p => new GetPostProfileDto
+                {
+                    Id = p.Id,
+                    ImagPost = p.PostImages.Select(i => new GetImageDto {
+                        Id = i.Id,
+                        Url = i.Link_Image
+                    }
+                    ).ToList(),
+
+                }
+                ).ToList()
+                };
+
+                
+            return Ok(dto);
+        }
     }
+
 }

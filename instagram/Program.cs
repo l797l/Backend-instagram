@@ -61,6 +61,16 @@ namespace instagram
                     };
                 });
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("ReactPolicy", policy =>
+                {
+                    policy.WithOrigins("http://localhost:5173")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
+            });
+
             builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
 
             builder.Services.AddScoped<IEmailService, EmailService>();
@@ -80,6 +90,7 @@ namespace instagram
             }
 
             app.UseHttpsRedirection();
+            app.UseCors("ReactPolicy");
             app.UseAuthentication();
 
             app.UseAuthorization();
