@@ -1,6 +1,7 @@
 ﻿using instagram.DB;
 using instagram.DB.Moduls;
 using instagram.DTO;
+using instagram.DTO.PostFull;
 using instagram.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -104,36 +105,51 @@ namespace instagram.Controllers
             return Ok();
         }
 
-        [HttpGet("GetAllPost")]
-        public async Task<IActionResult> GetAllPost()
+        [HttpGet("GetPost/{postId}")]
+        public async Task<IActionResult> GetAllPost(int postId)
         {
+            if(postId == null) return NotFound();
 
-            var cacheKey = "AllPosts";
-            if(memoryCache.TryGetValue(cacheKey, out List<FullPostDto> cachedPosts))
+            var post = await appDBContext.Posts
+                .Include(i=> i.PostImages)
+                .Include(l=> l.LikePosts)
+                .Include(c=>c.CommandPosts)
+                .Include(u=> u.User)
+                .FirstOrDefaultAsync(i => i.Id == postId)
+                ;
+            if (post == null) return NotFound();
+
+            var FullPost = new GetFullPostDto
             {
-                logger.LogWarning("Cache it is working /:");
-                return Ok(cachedPosts);
-            }
-            var posts = await appDBContext.Posts.ToListAsync();
-            var FullPost = new List<FullPostDto>();
-            foreach (var post in posts)
-            {
-                var image = await appDBContext.PostImages.FirstOrDefaultAsync(x => x.PostId == post.Id);
-                var countLikeToPost = await appDBContext.LikePost.CountAsync(x => x.PostId == post.Id);
-                var countCommentToPost = await appDBContext.CommandPost.CountAsync(x => x.PostId == post.Id);
-                FullPost.Add(new FullPostDto
+                Id = post.Id,
+                Title = post.Title,
+                Images = post.PostImages.Select(i => new GetImagePostDto
                 {
-                    Title = post.Title,
-                    Date_Create = post.Date_Create,
-                    UserId = post.UserId,
-                    Link_Image = image?.Link_Image,
-                    countLikeToPost = countLikeToPost,
-                    countCommentToPost = countCommentToPost
-                });
-            }
+                    Id = i.Id,
+                    Url = i.Link_Image,
+                }).ToList(),
 
-            memoryCache.Set(cacheKey , FullPost, TimeSpan.FromMinutes(20));
+                LikePosts = post.LikePosts.Select(l => new GetLikePostDto
+                {
+                    Id = l.Id
+                }).ToList(),
+
+                CommentPosts = post.CommandPosts.Select(c => new GetCommentPost
+                {
+                    Id = c.Id,
+                }).ToList(),
+
+                User = new GetUserPostDto
+                {
+                    username = post.User.UserName,
+                    fullName = post.User.First_Name +" " +post.User.Last_Name,
+                    imageProfile = post.User.Link_Image_Profile
+                }
+
+            };
             return Ok(FullPost);
+
+
         }
         [Authorize]
         [HttpPost("CreateLikeToPost/{PostId}")]
