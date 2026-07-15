@@ -75,7 +75,7 @@ namespace instagram.Controllers
         }
 
         [Authorize]
-        [HttpPost("CreateCommand/{PostId}")]
+        [HttpPost("CreateCommands/{PostId}")]
         public async Task<IActionResult> CreateCommand(int PostId, CreateCommentDto cDto)
         {
             if (!ModelState.IsValid) return BadRequest("Error");
@@ -114,6 +114,9 @@ namespace instagram.Controllers
                 .Include(i=> i.PostImages)
                 .Include(l=> l.LikePosts)
                 .Include(c=>c.CommandPosts)
+                    .ThenInclude(u=> u.User)
+                .Include(c => c.CommandPosts)
+                    .ThenInclude(l=> l.LikeCommands)
                 .Include(u=> u.User)
                 .FirstOrDefaultAsync(i => i.Id == postId)
                 ;
@@ -137,12 +140,20 @@ namespace instagram.Controllers
                 CommentPosts = post.CommandPosts.Select(c => new GetCommentPost
                 {
                     Id = c.Id,
+                    Comment = c.Content,
+                    userName = c.User.UserName,
+                    ImageProfile = c.User.Link_Image_Profile,
+                    CommentLikes = c.LikeCommands.Select(l => new GetLikeToCommentDto
+                    {
+                        Id = l.Id,
+                    }).ToList()
+
                 }).ToList(),
 
                 User = new GetUserPostDto
                 {
                     username = post.User.UserName,
-                    fullName = post.User.First_Name +" " +post.User.Last_Name,
+                    fullName = post.User.First_Name + " " + post.User.Last_Name,
                     imageProfile = post.User.Link_Image_Profile
                 }
 
